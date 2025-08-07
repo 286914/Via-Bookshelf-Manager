@@ -1,0 +1,466 @@
+// ==UserScript==
+// @name         Via 手动书架管理
+// @namespace    https://viayoo.com/l9v71m
+// @version      1.0
+// @description  书名单独一行显示，章节和操作按钮一行，统一表单弹窗修改和添加书籍。
+// @author       286914
+// @run-at       document-end
+// @match        *://*/*
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    const btn = document.createElement('button');
+    btn.textContent = '书架';
+    Object.assign(btn.style, {
+        position: 'fixed',
+        right: '15px',
+        bottom: '15px',
+        zIndex: 999999,
+        padding: '12px 18px',
+        backgroundColor: '#1a73e8',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: 'pointer',
+        fontSize: '16px',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+    });
+    document.body.appendChild(btn);
+    btn.addEventListener('click', openBookshelf);
+
+    function openBookshelf() {
+        let overlay = document.getElementById('bookshelf-overlay');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            return;
+        }
+
+        overlay = document.createElement('div');
+        overlay.id = 'bookshelf-overlay';
+        Object.assign(overlay.style, {
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            zIndex: 1000000,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+        });
+
+        const box = document.createElement('div');
+        Object.assign(box.style, {
+            backgroundColor: '#fff',
+            padding: '25px 30px',
+            borderRadius: '12px',
+            width: '480px',
+            maxHeight: '85%',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+            position: 'relative',
+            fontSize: '15px',
+            color: '#333',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+            display: 'flex',
+            flexDirection: 'column'
+        });
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = '关闭';
+        Object.assign(closeBtn.style, {
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            padding: '6px 12px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            backgroundColor: '#eee',
+            border: 'none',
+            borderRadius: '6px',
+            transition: 'background-color 0.3s'
+        });
+        closeBtn.onmouseenter = () => closeBtn.style.backgroundColor = '#ddd';
+        closeBtn.onmouseleave = () => closeBtn.style.backgroundColor = '#eee';
+        closeBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+        });
+        box.appendChild(closeBtn);
+
+        const title = document.createElement('h2');
+        title.textContent = '我的书架';
+        Object.assign(title.style, {
+            marginTop: '0',
+            marginBottom: '12px',
+            fontWeight: '600',
+            fontSize: '22px',
+            color: '#1a73e8',
+            textAlign: 'center'
+        });
+        box.appendChild(title);
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'search';
+        searchInput.placeholder = '搜索书名...';
+        Object.assign(searchInput.style, {
+            padding: '8px 12px',
+            fontSize: '15px',
+            borderRadius: '8px',
+            border: '1px solid #ccc',
+            marginBottom: '12px',
+            outline: 'none',
+            transition: 'border-color 0.3s',
+            width: '100%'
+        });
+        searchInput.onfocus = () => searchInput.style.borderColor = '#1a73e8';
+        searchInput.onblur = () => searchInput.style.borderColor = '#ccc';
+        box.appendChild(searchInput);
+
+        const list = document.createElement('ul');
+        Object.assign(list.style, {
+            listStyle: 'none',
+            padding: '0',
+            maxHeight: '350px',
+            overflowY: 'auto',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            backgroundColor: '#fafafa',
+            flexGrow: '1'
+        });
+        box.appendChild(list);
+
+        const controls1 = document.createElement('div');
+        Object.assign(controls1.style, {
+            marginTop: '15px',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '15px',
+            flexWrap: 'wrap'
+        });
+
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '添加书籍';
+        styleControlBtn(addBtn);
+        addBtn.onclick = () => openEditForm(null);
+        controls1.appendChild(addBtn);
+
+        box.appendChild(controls1);
+
+        const controls2 = document.createElement('div');
+        Object.assign(controls2.style, {
+            marginTop: '12px',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '15px',
+            flexWrap: 'wrap'
+        });
+
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = '导出书架';
+        styleControlBtn(exportBtn);
+        exportBtn.onclick = exportData;
+        controls2.appendChild(exportBtn);
+
+        const importBtn = document.createElement('button');
+        importBtn.textContent = '导入书架';
+        styleControlBtn(importBtn);
+        importBtn.onclick = () => importInput.click();
+        controls2.appendChild(importBtn);
+
+        box.appendChild(controls2);
+
+        const importInput = document.createElement('input');
+        importInput.type = 'file';
+        importInput.accept = 'application/json';
+        importInput.style.display = 'none';
+        importInput.addEventListener('change', importData);
+        box.appendChild(importInput);
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        searchInput.addEventListener('input', () => {
+            renderList(searchInput.value.trim());
+        });
+
+        renderList();
+
+        function styleControlBtn(button) {
+            Object.assign(button.style, {
+                padding: '10px 18px',
+                cursor: 'pointer',
+                fontSize: '15px',
+                borderRadius: '8px',
+                border: 'none',
+                backgroundColor: '#1a73e8',
+                color: '#fff',
+                boxShadow: '0 2px 6px rgba(26,115,232,0.7)',
+                transition: 'background-color 0.3s'
+            });
+            button.onmouseenter = () => button.style.backgroundColor = '#1669c1';
+            button.onmouseleave = () => button.style.backgroundColor = '#1a73e8';
+        }
+
+        function getBooks() {
+            return JSON.parse(localStorage.getItem('via_bookshelf') || '[]');
+        }
+
+        function saveBooks(books) {
+            localStorage.setItem('via_bookshelf', JSON.stringify(books));
+        }
+
+        function renderList(filter = '') {
+            const books = getBooks();
+            list.innerHTML = '';
+            const filtered = filter ? books.filter(b => b.name.toLowerCase().includes(filter.toLowerCase())) : books;
+            if (filtered.length === 0) {
+                list.innerHTML = '<li style="text-align:center;padding:20px;color:#888;">暂无匹配书籍</li>';
+                return;
+            }
+            filtered.forEach((book) => {
+                const li = document.createElement('li');
+                Object.assign(li.style, {
+                    padding: '8px 12px',
+                    borderBottom: '1px solid #ddd',
+                    borderRadius: '6px',
+                    margin: '6px 8px',
+                    backgroundColor: '#fff',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                    wordBreak: 'break-word',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                });
+
+                const nameLink = document.createElement('a');
+                nameLink.href = book.url;
+                nameLink.target = '_blank';
+                nameLink.rel = 'noopener noreferrer';
+                nameLink.textContent = book.name;
+                Object.assign(nameLink.style, {
+                    color: '#1a73e8',
+                    textDecoration: 'underline',
+                    fontWeight: '600',
+                    fontSize: '16px',
+                    wordBreak: 'break-word',
+                    whiteSpace: 'normal',
+                });
+                li.appendChild(nameLink);
+
+                const row2 = document.createElement('div');
+                Object.assign(row2.style, {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    gap: '10px',
+                    fontSize: '14px',
+                    color: '#444'
+                });
+
+                const chapterSpan = document.createElement('span');
+                chapterSpan.textContent = `章节: ${book.chapter || '?'} / ${book.total || '?'}`;
+                chapterSpan.title = `章节: ${book.chapter || '?'} 已读, 共 ${book.total || '?'} 章`;
+                row2.appendChild(chapterSpan);
+
+                const editBtn = document.createElement('button');
+                editBtn.textContent = '修改';
+                styleSmallBtn(editBtn, '#409EFF');
+                editBtn.onclick = () => openEditForm(book);
+                row2.appendChild(editBtn);
+
+                const delBtn = document.createElement('button');
+                delBtn.textContent = '删除';
+                styleSmallBtn(delBtn, '#FF4D4F');
+                delBtn.onclick = () => {
+                    if(confirm('确认删除这本书吗？')) {
+                        const books = getBooks().filter(b => !(b.name === book.name && b.url === book.url));
+                        saveBooks(books);
+                        renderList(searchInput.value.trim());
+                    }
+                };
+                row2.appendChild(delBtn);
+
+                li.appendChild(row2);
+                list.appendChild(li);
+            });
+        }
+
+        function styleSmallBtn(button, bgColor) {
+            Object.assign(button.style, {
+                padding: '4px 10px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                border: 'none',
+                borderRadius: '4px',
+                backgroundColor: bgColor,
+                color: '#fff',
+                whiteSpace: 'nowrap',
+                userSelect: 'none',
+                transition: 'background-color 0.3s'
+            });
+            button.onmouseenter = () => button.style.backgroundColor = shadeColor(bgColor, -20);
+            button.onmouseleave = () => button.style.backgroundColor = bgColor;
+        }
+
+        function shadeColor(color, percent) {
+            const f = parseInt(color.slice(1), 16),
+                  t = percent < 0 ? 0 : 255,
+                  p = Math.abs(percent) / 100,
+                  R = f >> 16,
+                  G = f >> 8 & 0x00FF,
+                  B = f & 0x0000FF;
+            return "#" + (0x1000000 + 
+                (Math.round((t - R) * p) + R) * 0x10000 +
+                (Math.round((t - G) * p) + G) * 0x100 +
+                (Math.round((t - B) * p) + B)).toString(16).slice(1);
+        }
+
+        function exportData() {
+            const books = getBooks();
+            if (books.length === 0) return alert('书架为空，无法导出');
+            const blob = new Blob([JSON.stringify(books)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'via_bookshelf_backup.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data)) throw '格式错误';
+                    localStorage.setItem('via_bookshelf', JSON.stringify(data));
+                    renderList(searchInput.value.trim());
+                    alert('导入成功');
+                    event.target.value = '';
+                } catch {
+                    alert('导入失败，文件格式错误');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function openEditForm(book = null) {
+            const isEdit = !!book;
+            const formOverlay = document.createElement('div');
+            Object.assign(formOverlay.style, {
+                position: 'fixed',
+                top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                zIndex: 1000001,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+            });
+
+            const formBox = document.createElement('div');
+            Object.assign(formBox.style, {
+                backgroundColor: '#fff',
+                padding: '20px 25px',
+                borderRadius: '12px',
+                width: '400px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+                fontSize: '15px',
+                color: '#333',
+                boxSizing: 'border-box',
+            });
+
+            const title = document.createElement('h3');
+            title.textContent = isEdit ? '修改书籍信息' : '添加新书籍';
+            Object.assign(title.style, {
+                marginTop: '0',
+                marginBottom: '15px',
+                textAlign: 'center',
+                fontSize: '20px',
+                color: '#1a73e8'
+            });
+            formBox.appendChild(title);
+
+            const fields = [
+                { label: '书名', key: 'name', required: true },
+                { label: '网址', key: 'url', required: true },
+                { label: '已读章节', key: 'chapter', required: true },
+                { label: '总章节', key: 'total', required: false }
+            ];
+
+            const inputs = {};
+            fields.forEach(f => {
+                const label = document.createElement('label');
+                label.textContent = f.label;
+                label.style.display = 'block';
+                label.style.marginTop = '10px';
+                formBox.appendChild(label);
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = isEdit && book[f.key] ? book[f.key] : '';
+                Object.assign(input.style, {
+                    width: '100%',
+                    padding: '8px',
+                    marginTop: '4px',
+                    boxSizing: 'border-box',
+                    borderRadius: '6px',
+                    border: '1px solid #ccc',
+                    fontSize: '14px'
+                });
+                formBox.appendChild(input);
+                inputs[f.key] = input;
+            });
+
+            const btnRow = document.createElement('div');
+            Object.assign(btnRow.style, {
+                marginTop: '20px',
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '15px'
+            });
+
+            const saveBtn = document.createElement('button');
+            saveBtn.textContent = '保存';
+            styleControlBtn(saveBtn);
+            saveBtn.onclick = () => {
+                const updated = {};
+                for (const f of fields) {
+                    const val = inputs[f.key].value.trim();
+                    if (f.required && !val) {
+                        alert(`${f.label} 是必填项`);
+                        return;
+                    }
+                    updated[f.key] = val || '';
+                }
+
+                const books = getBooks();
+                if (isEdit) {
+                    const index = books.findIndex(b => b.name === book.name && b.url === book.url);
+                    if (index !== -1) books[index] = updated;
+                } else {
+                    books.push(updated);
+                }
+                saveBooks(books);
+                renderList(searchInput.value.trim());
+                document.body.removeChild(formOverlay);
+            };
+            btnRow.appendChild(saveBtn);
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = '取消';
+            styleControlBtn(cancelBtn);
+            cancelBtn.style.backgroundColor = '#aaa';
+            cancelBtn.onmouseenter = () => cancelBtn.style.backgroundColor = '#888';
+            cancelBtn.onmouseleave = () => cancelBtn.style.backgroundColor = '#aaa';
+            cancelBtn.onclick = () => document.body.removeChild(formOverlay);
+            btnRow.appendChild(cancelBtn);
+
+            formBox.appendChild(btnRow);
+            formOverlay.appendChild(formBox);
+            document.body.appendChild(formOverlay);
+        }
+    }
+})();

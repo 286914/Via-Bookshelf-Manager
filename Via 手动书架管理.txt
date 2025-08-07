@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Via 手动书架管理
-// @namespace    https://viayoo.com/l9v71m
+// @namespace    https://github.com/286914/Via-Bookshelf-Manager/
 // @version      1.0
 // @description  书名单独一行显示，章节和操作按钮一行，统一表单弹窗修改和添加书籍。
 // @author       286914

@@ -1,12 +1,13 @@
 // ==UserScript==
-// @name         Via 手动书架管理
+// @name         Via 手动书架管理（修复版）
 // @namespace    https://github.com/286914/Via-Bookshelf-Manager/
-// @version      1.0
-// @description  书名单独一行显示，章节和操作按钮一行，统一表单弹窗修改和添加书籍。
+// @version      1.0.1
+// @description  书名单独一行显示，章节和操作按钮一行，统一表单弹窗修改和添加书籍。跨站共享数据，使用 GM_setValue/GM_getValue。
 // @author       286914
 // @run-at       document-end
 // @match        *://*/*
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
 // ==/UserScript==
 
 (function() {
@@ -203,11 +204,15 @@
         }
 
         function getBooks() {
-            return JSON.parse(localStorage.getItem('via_bookshelf') || '[]');
+            try {
+                return JSON.parse(GM_getValue('via_bookshelf', '[]'));
+            } catch (e) {
+                return [];
+            }
         }
 
         function saveBooks(books) {
-            localStorage.setItem('via_bookshelf', JSON.stringify(books));
+            GM_setValue('via_bookshelf', JSON.stringify(books));
         }
 
         function renderList(filter = '') {
@@ -336,7 +341,7 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     if (!Array.isArray(data)) throw '格式错误';
-                    localStorage.setItem('via_bookshelf', JSON.stringify(data));
+                    GM_setValue('via_bookshelf', JSON.stringify(data));
                     renderList(searchInput.value.trim());
                     alert('导入成功');
                     event.target.value = '';
